@@ -114,6 +114,82 @@ def render_vis(model, objective_f, param_f=None, optimizer=None,
 
     return images
 
+def make_vis_T_grad(model, objective_f, param_f=None, optimizer=None,
+               transforms=None, relu_gradient_override=False):
+  """Even more flexible optimization-base feature vis.
+
+  This function is the inner core of render_vis(), and can be used
+  when render_vis() isn't flexible enough. Unfortunately, it's a bit more
+  tedious to use:
+
+  >  with tf.Graph().as_default() as graph, tf.Session() as sess:
+  >
+  >    T = make_vis_T(model, "mixed4a_pre_relu:0")
+  >    tf.initialize_all_variables().run()
+  >
+  >    for i in range(10):
+  >      T("vis_op").run()
+  >      showarray(T("input").eval()[0])
+
+  This approach allows more control over how the visualizaiton is displayed
+  as it renders. It also allows a lot more flexibility in constructing
+  objectives / params because the session is already in scope.
+
+
+  Args:
+    model: The model to be visualized, from Alex' modelzoo.
+    objective_f: The objective our visualization maximizes.
+      See the objectives module for more details.
+    param_f: Paramaterization of the image we're optimizing.
+      See the paramaterization module for more details.
+      Defaults to a naively paramaterized [1, 128, 128, 3] image.
+    optimizer: Optimizer to optimize with. Either tf.train.Optimizer instance,
+      or a function from (graph, sess) to such an instance.
+      Defaults to Adam with lr .05.
+    transforms: A list of stochastic transformations that get composed,
+      which our visualization should robustly activate the network against.
+      See the transform module for more details.
+      Defaults to [transform.jitter(8)].
+
+  Returns:
+    A function T, which allows access to:
+      * T("vis_op") -- the operation for to optimize the visualization
+      * T("input") -- the visualization itself
+      * T("loss") -- the loss for the visualization
+      * T(layer) -- any layer inside the network
+  """
+
+  # pylint: disable=unused-variable
+  t_image = make_t_image(param_f)
+  objective_f = objectives.as_objective(objective_f)
+  transform_f = make_transform_f(transforms)
+  optimizer = make_optimizer(optimizer, [])
+
+  global_step = tf.train.get_or_create_global_step()
+  init_global_step = tf.variables_initializer([global_step])
+  init_global_step.run()
+
+  if relu_gradient_override:
+    with gradient_override_map({'Relu': redirected_relu_grad,
+                                'Relu6': redirected_relu6_grad}):
+      T = import_model(model, transform_f(t_image), t_image)
+  else:
+    T = import_model(model, transform_f(t_image), t_image)
+  loss = objective_f(T)
+
+  grads = optimizer.compute_gradients(-loss)
+
+  vis_op = optimizer.apply_gradients(grads, global_step=global_step)
+
+  local_vars = locals()
+  # pylint: enable=unused-variable
+
+  def T2(name):
+    if name in local_vars:
+      return local_vars[name]
+    else: return T(name)
+
+  return T2
 
 def make_vis_T(model, objective_f, param_f=None, optimizer=None,
                transforms=None, relu_gradient_override=False):
