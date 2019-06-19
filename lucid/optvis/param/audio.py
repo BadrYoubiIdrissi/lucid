@@ -13,10 +13,20 @@
 # limitations under the License.
 # ==============================================================================
 
-from lucid.optvis.param.images import image
-from lucid.optvis.param.audio import audio
-from lucid.optvis.param.lowres import lowres_tensor
+"""High-level wrapper for paramaterizing images."""
+
+
+import tensorflow as tf
+
 from lucid.optvis.param.color import to_valid_rgb
-from lucid.optvis.param.spatial import naive, fft_image, laplacian_pyramid
-from lucid.optvis.param.random import image_sample
-from lucid.optvis.param.cppn import cppn
+from lucid.optvis.param.spatial import raw_audio, fft_audio
+
+
+def audio(size, batch=None, sd=None, fft=True, channels=None):
+    batch = batch or 1
+    ch = channels or 1
+    shape = [batch, size, ch]
+    param_f = fft_audio if fft else raw_audio
+    t = param_f(shape, sd=sd)
+    output = tf.nn.tanh(t)
+    return output
