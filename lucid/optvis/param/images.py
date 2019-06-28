@@ -30,10 +30,15 @@ def image(w, h=None, batch=None, sd=None, decorrelate=True, fft=True, alpha=Fals
     param_f = fft_image if fft else pixel_image
     t = param_f(shape, sd=sd)
     if channels:
-        output = to_valid_rgb(t, decorrelate=False, sigmoid=True)
+        output = tf.nn.sigmoid(t)
     else:
         output = to_valid_rgb(t[..., :3], decorrelate=decorrelate, sigmoid=True)
         if alpha:
             a = tf.nn.sigmoid(t[..., 3:])
             return tf.concat([rgb, a], -1)
     return output
+
+def grayscale_image_rgb(*args, **kwargs):
+  """Takes same arguments as image"""
+  output = image(*args, channels=1, **kwargs)
+  return tf.tile(output, (1,1,1,3))
