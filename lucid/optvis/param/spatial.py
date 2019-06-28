@@ -114,7 +114,6 @@ def fft_image(shape, sd=None, decay_power=1):
         # This allows to use similar leanring rates to pixel-wise optimisation.
         scale = 1.0 / np.maximum(freqs, 1.0 / max(w, h)) ** decay_power
         scale *= np.sqrt(w * h)
-        scale[0] = 0
         scaled_spectrum_t = scale * spectrum_t
 
         # convert complex scaled spectrum to shape (h, w, ch) image tensor
