@@ -67,7 +67,7 @@ def pad(w, mode="REFLECT", constant_value=0.5):
 def amplitude_scaling(scales, seed=None):
     def inner(t):
         t = tf.convert_to_tensor(t, preferred_dtype=tf.float32)
-        scale = ta2._rand_select(scales, seed=seed)
+        scale = _rand_select(scales, seed=seed)
         return scale*t
     return inner
 
