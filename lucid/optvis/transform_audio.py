@@ -82,7 +82,7 @@ def norm_pdf(x):
 
 def random_muffle(sds, p, seed=None):
     def inner(t):
-        if tf.random.uniform() < p:
+        if np.random.random() < p:
             t = tf.convert_to_tensor(t, preferred_dtype=tf.float32)
             sd = _rand_select(sds, seed=seed)
             sd = tf.cast(80*sd, dtype=tf.int32)
