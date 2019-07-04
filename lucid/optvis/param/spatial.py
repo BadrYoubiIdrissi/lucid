@@ -21,13 +21,13 @@ import tensorflow as tf
 from lucid.optvis.param.lowres import lowres_tensor
 
 
-def pixel_image(shape, sd=None, init_val=None):
-    """A naive, pixel-based image parameterization.
+def arbitrary_input(shape, sd=None, init_val=None):
+    """A naive, pixel-based parameterization.
     Defaults to a random initialization, but can take a supplied init_val argument
     instead.
 
     Args:
-      shape: shape of resulting image, [batch, width, height, channels].
+      shape: any input shape.
       sd: standard deviation of param initialization noise.
       init_val: an initial value to use instead of a random initialization. Needs
         to have the same shape as the supplied shape argument.
@@ -37,14 +37,16 @@ def pixel_image(shape, sd=None, init_val=None):
     """
     if sd is not None and init_val is not None:
         warnings.warn(
-            "`pixel_image` received both an initial value and a sd argument. Ignoring sd in favor of the supplied initial value."
+            "`arbitrary_input` received both an initial value and a sd argument. Ignoring sd in favor of the supplied initial value."
         )
 
     sd = sd or 0.01
     init_val = init_val or np.random.normal(size=shape, scale=sd).astype(np.float32)
     return tf.Variable(init_val)
 
-raw_audio = pixel_image
+# Image
+
+pixel_image = arbitrary_input
 
 def rfft2d_freqs(h, w):
     """Computes 2D spectrum frequencies."""
@@ -57,42 +59,6 @@ def rfft2d_freqs(h, w):
     else:
         fx = np.fft.fftfreq(w)[: w // 2 + 1]
     return np.sqrt(fx * fx + fy * fy)
-
-#TODO : fft_audio
-
-def fft_audio(shape, sd=None, decay_power=1):
-    """An image paramaterization using 2D Fourier coefficients."""
-
-    sd = sd or 0.01
-    batch, size, ch = shape
-    freqs = abs(np.fft.rfftfreq(size))
-    init_val_size = (2, ch) + freqs.shape
-
-    audios = []
-    for _ in range(batch):
-        # Create a random variable holding the actual 2D fourier coefficients
-        init_val = np.random.normal(size=init_val_size, scale=sd).astype(np.float32)
-        spectrum_real_imag_t = tf.Variable(init_val)
-        spectrum_t = tf.complex(spectrum_real_imag_t[0], spectrum_real_imag_t[1])
-
-        # Scale the spectrum. First normalize energy, then scale by the square-root
-        # of the number of pixels to get a unitary transformation.
-        # This allows to use similar leanring rates to pixel-wise optimisation.
-        scale = 1.0 / np.maximum(freqs, 1.0 / size) ** decay_power
-        scale *= np.sqrt(size)
-        scaled_spectrum_t = scale * spectrum_t
-
-        # convert complex scaled spectrum to shape (h, w, ch) image tensor
-        # needs to transpose because irfft2d returns channels first
-        audio_t = tf.transpose(tf.spectral.irfft(scaled_spectrum_t))
-
-        # in case of odd spatial input dimensions we need to crop
-        audio_t = audio_t[:size, :ch]
-
-        audios.append(audio_t)
-
-    batched_audio_t = tf.stack(audios) / 4.0  # TODO: is that a magic constant?
-    return batched_audio_t
 
 def fft_image(shape, sd=None, decay_power=1):
     """An image paramaterization using 2D Fourier coefficients."""
@@ -114,7 +80,6 @@ def fft_image(shape, sd=None, decay_power=1):
         # This allows to use similar leanring rates to pixel-wise optimisation.
         scale = 1.0 / np.maximum(freqs, 1.0 / max(w, h)) ** decay_power
         scale *= np.sqrt(w * h)
-        scale[0] = 0
         scaled_spectrum_t = scale * spectrum_t
 
         # convert complex scaled spectrum to shape (h, w, ch) image tensor
@@ -185,6 +150,43 @@ def bilinearly_sampled_image(texture, uv):
     s = s0 * (1.0 - uf) + s1 * uf
     return s
 
+## AUDIO
+
+raw_audio = arbitrary_input
+
+def fft_audio(shape, sd=None, decay_power=1):
+    """An audio paramaterization using fourier coefficients."""
+
+    sd = sd or 0.01
+    batch, size, ch = shape
+    freqs = abs(np.fft.rfftfreq(size))
+    init_val_size = (2, ch) + freqs.shape
+
+    audios = []
+    for _ in range(batch):
+        # Create a random variable holding the actual fourier coefficients
+        init_val = np.random.normal(size=init_val_size, scale=sd).astype(np.float32)
+        spectrum_real_imag_t = tf.Variable(init_val)
+        spectrum_t = tf.complex(spectrum_real_imag_t[0], spectrum_real_imag_t[1])
+
+        # Scale the spectrum. First normalize energy, then scale by the square-root
+        # of the number of pixels to get a unitary transformation.
+        # This allows to use similar leanring rates to pixel-wise optimisation.
+        scale = 1.0 / np.maximum(freqs, 1.0 / size) ** decay_power
+        scale *= np.sqrt(size)
+        scaled_spectrum_t = scale * spectrum_t
+
+        # convert complex scaled spectrum to shape (h, w, ch) image tensor
+        # needs to transpose because irfft2d returns channels first
+        audio_t = tf.transpose(tf.spectral.irfft(scaled_spectrum_t))
+
+        # in case of odd spatial input dimensions we need to crop
+        audio_t = audio_t[:size, :ch]
+
+        audios.append(audio_t)
+
+    batched_audio_t = tf.stack(audios)
+    return batched_audio_t
 
 # Deprecations
 
