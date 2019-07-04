@@ -80,13 +80,16 @@ def zero_mean():
 def norm_pdf(x):
     return (1/tf.sqrt(2*math.pi))*tf.exp(-tf.pow(x,2)/2)
 
-def random_muffle(sds, seed=None):
+def random_muffle(sds, p, seed=None):
     def inner(t):
-        t = tf.convert_to_tensor(t, preferred_dtype=tf.float32)
-        sd = _rand_select(sds, seed=seed)
-        sd = tf.cast(80*sd, dtype=tf.int32)
-        norm = tf.expand_dims(tf.expand_dims(norm_pdf(tf.linspace(-1.,1.,sd)),-1),-1)
-        return tf.nn.convolution(t, norm, padding="SAME")
+        if tf.random.uniform() < p:
+            t = tf.convert_to_tensor(t, preferred_dtype=tf.float32)
+            sd = _rand_select(sds, seed=seed)
+            sd = tf.cast(80*sd, dtype=tf.int32)
+            norm = tf.expand_dims(tf.expand_dims(norm_pdf(tf.linspace(-1.,1.,sd)),-1),-1)
+            return tf.nn.convolution(t, norm, padding="SAME")
+        else:
+            return t
 
     return inner
 
