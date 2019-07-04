@@ -74,7 +74,7 @@ def amplitude_scaling(scales, seed=None):
 def zero_mean():
     def inner(t):
         t = tf.convert_to_tensor(t, preferred_dtype=tf.float32)
-        return t - tf.mean(t)
+        return t - tf.reduce_mean(t)
     return inner
 
 def norm_pdf(x):
