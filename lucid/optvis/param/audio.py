@@ -27,6 +27,5 @@ def audio(size, batch=None, sd=None, fft=True, channels=None):
     ch = channels or 1
     shape = [batch, size, ch]
     param_f = fft_audio if fft else raw_audio
-    t = param_f(shape, sd=sd)
-    output = tf.nn.tanh(t)
+    output = param_f(shape, sd=sd)
     return output
