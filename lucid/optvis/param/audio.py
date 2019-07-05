@@ -28,4 +28,4 @@ def audio(size, batch=None, sd=None, fft=True, channels=None):
     shape = [batch, size, ch]
     param_f = fft_audio if fft else raw_audio
     output = param_f(shape, sd=sd)
-    return output
+    return tf.convert_to_tensor(output, preferred_dtype=tf.float32)
